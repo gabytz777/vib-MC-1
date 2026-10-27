@@ -117,14 +117,16 @@ public final class BlockUpdates {
             return;
         }
         WrappedBlockState below = y > 0 ? world.getBlockAt(x, y - 1, z) : Blocks.AIR;
+        // Water pouring onto lava makes cobblestone; lava meeting water makes stone. This
+        // must run before the generic falling branch, which would otherwise overwrite the
+        // other fluid because fluids count as replaceable.
+        if (y > 0 && Blocks.isFluid(below) && !sameFluid(fluid, below)) {
+            world.setBlockAndUpdate(x, y - 1, z, water ? Blocks.COBBLESTONE : Blocks.STONE);
+            return;
+        }
         if (y > 0 && Blocks.isReplaceable(below) && !sameFluid(fluid, below)) {
             world.setBlockAndUpdate(x, y - 1, z, Blocks.fluidAt(fluid, FALLING));
             schedule(x, y - 1, z, delay);
-            return;
-        }
-        // Water pouring onto lava, or lava met by water, produces stone as in vanilla.
-        if (y > 0 && Blocks.isFluid(below) && !sameFluid(fluid, below)) {
-            world.setBlockAndUpdate(x, y - 1, z, Blocks.COBBLESTONE);
             return;
         }
         if (effective >= maxSpread) return;
