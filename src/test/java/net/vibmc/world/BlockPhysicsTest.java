@@ -102,6 +102,36 @@ class BlockPhysicsTest {
     }
 
     @Test
+    void waterFlowingDownOntoLavaMakesCobblestone() {
+        World world = new World(15L, "physics-water-lava");
+        int x = 140, z = 140;
+        int base = world.getHighestSolidY(x, z) + 2;
+        clear(world, x, base, z, 4);
+        world.setBlockAt(x, base, z, Blocks.LAVA);
+        world.setBlockAndUpdate(x, base + 1, z, Blocks.WATER);
+
+        settle(world, 120);
+
+        assertTrue(Blocks.same(world.getBlockAt(x, base, z), Blocks.COBBLESTONE),
+                "water flowing onto lava must produce cobblestone, not replace the lava");
+    }
+
+    @Test
+    void lavaFlowingDownOntoWaterMakesStone() {
+        World world = new World(16L, "physics-lava-water");
+        int x = 160, z = 160;
+        int base = world.getHighestSolidY(x, z) + 2;
+        clear(world, x, base, z, 4);
+        world.setBlockAt(x, base, z, Blocks.WATER);
+        world.setBlockAndUpdate(x, base + 1, z, Blocks.LAVA);
+
+        settle(world, 120);
+
+        assertTrue(Blocks.same(world.getBlockAt(x, base, z), Blocks.STONE),
+                "lava flowing onto water must produce stone, not replace the water");
+    }
+
+    @Test
     void leavesDecayOnceTheirLogIsGone() {
         World world = new World(11L, "physics-leaves");
         int x = 80, z = 80;
