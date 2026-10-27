@@ -10,8 +10,26 @@ import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public final class LoginHandler implements PacketHandler {
+    private static final int MAX_AUTHENTICATION_THREADS = 4;
+    private static final int MAX_AUTHENTICATION_QUEUE = 64;
+    private static final ExecutorService AUTH_EXECUTOR = new ThreadPoolExecutor(
+            MAX_AUTHENTICATION_THREADS,
+            MAX_AUTHENTICATION_THREADS,
+            60L,
+            TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(MAX_AUTHENTICATION_QUEUE),
+            runnable -> {
+                Thread thread = new Thread(runnable, "Session Auth");
+                thread.setDaemon(true);
+                return thread;
+            },
+            new ThreadPoolExecutor.AbortPolicy());
     private final SecureRandom random = new SecureRandom();
     private String username;
     private byte[] verifyToken;
@@ -79,10 +97,12 @@ public final class LoginHandler implements PacketHandler {
                 connection.disconnect("Invalid encryption response.");
                 return;
             }
-            Thread authentication = new Thread(() -> authenticate(connection, sharedSecret),
-                    "Session Auth - " + username);
-            authentication.setDaemon(true);
-            authentication.start();
+            String authUsername = username;
+            try {
+                AUTH_EXECUTOR.execute(() -> authenticate(connection, sharedSecret));
+            } catch (Exception e) {
+                connection.disconnect("Authentication queue is saturated.");
+            }
         } catch (Exception e) {
             connection.disconnect("Failed to enable encryption.");
         }
